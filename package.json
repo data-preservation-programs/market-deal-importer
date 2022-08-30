@@ -1,0 +1,20 @@
+{
+  "name": "market-deal-importer",
+  "version": "1.0.0",
+  "description": "AWS Lambda functions to import Filecoin.StateMarketDeals to RDS",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/data-preservation-programs/market-deal-importer.git"
+  },
+  "author": "Xinan Xu",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/data-preservation-programs/market-deal-importer/issues"
+  },
+  "homepage": "https://github.com/data-preservation-programs/market-deal-importer#readme"
+}

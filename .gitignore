@@ -102,3 +102,9 @@ dist
 
 # TernJS port file
 .tern-port
+
+dist
+.idea
+.aws-sam/
+aws-toolkit-tsconfig.json
+aws-toolkit-ts-output
