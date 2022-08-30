@@ -4,7 +4,9 @@ import axios from "axios";
 import StreamObject from "stream-json/streamers/StreamObject";
 import {stream} from "event-iterator"
 import {EventIterator} from "event-iterator/src/event-iterator";
-import {Client as PostgresClient} from 'pg';
+import {Pool} from 'pg';
+// @ts-ignore
+import TaskQueue from '@goodware/task-queue';
 
 export const dropStatement = 'DROP TABLE IF EXISTS current_state_new';
 export const createStatement = `CREATE TABLE current_state_new (
@@ -142,8 +144,11 @@ export function convertMarketDeal(deal: {key: string, value: MarketDeal}) : Deal
     ];
 }
 
-export async function processDeals(url: string, postgres: PostgresClient): Promise<void> {
+export async function processDeals(url: string, postgres: Pool): Promise<void> {
     await postgres.connect();
+    const queue = new TaskQueue({
+        size: parseInt(process.env.POLL_MAX || '64') * 2
+    });
     let count = 0;
     try {
         console.info(dropStatement);
@@ -153,12 +158,14 @@ export async function processDeals(url: string, postgres: PostgresClient): Promi
         console.info(createStatement);
 
         for await (const marketDeal of await readMarketDeals(url)) {
-            await postgres.query({
-                name: 'insert-new-deal',
-                text: insertStatement,
-                values: convertMarketDeal(marketDeal)
+            await queue.push(async () => {
+                await postgres.query({
+                    name: 'insert-new-deal',
+                    text: insertStatement,
+                    values: convertMarketDeal(marketDeal)
+                });
+                count++;
             });
-            count++;
         }
         console.log('Rename current_state_new to current_state');
         try {
@@ -179,7 +186,10 @@ export async function processDeals(url: string, postgres: PostgresClient): Promi
 
 export async function handler(event: InputEvent) {
     const url = event.url;
-    const postgres = new PostgresClient();
+    const postgres = new Pool({
+        min: parseInt(process.env.POOL_MIN || '8'),
+        max: parseInt(process.env.POLL_MAX || '64')
+    });
     await processDeals(url, postgres);
     const response = {
         statusCode: 200

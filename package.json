@@ -30,6 +30,7 @@
     "jasmine-ts": "^0.4.0"
   },
   "dependencies": {
+    "@goodware/task-queue": "^2.1.3",
     "axios": "^0.27.2",
     "event-iterator": "^2.0.0",
     "pg": "^8.8.0",
