@@ -4,10 +4,12 @@
   "description": "AWS Lambda functions to import Filecoin.StateMarketDeals to RDS",
   "main": "index.js",
   "scripts": {
-    "tsc": "tsc",
-    "build": "esbuild index.ts --bundle --sourcemap --platform=node --target=es2020 --outfile=dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "zip": "cd dist && zip -r index.zip ."
+    "build": "tsc",
+    "postbuild": "cp package*.json dist && cd dist && npm ci --production",
+    "test": "jasmine-ts index.spec.ts",
+    "zip": "cd dist && zip -r index.zip .",
+    "prestart": "npm run build",
+    "start": "sam local invoke -t sam-template.yaml"
   },
   "repository": {
     "type": "git",
@@ -21,6 +23,16 @@
   "homepage": "https://github.com/data-preservation-programs/market-deal-importer#readme",
   "devDependencies": {
     "@types/aws-lambda": "^8.10.102",
-    "esbuild": "^0.15.6"
+    "@types/jasmine": "^4.0.0",
+    "@types/pg": "^8.6.5",
+    "@types/stream-json": "^1.7.2",
+    "jasmine": "^3.99.0",
+    "jasmine-ts": "^0.4.0"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "event-iterator": "^2.0.0",
+    "pg": "^8.8.0",
+    "stream-json": "^1.7.4"
   }
 }
