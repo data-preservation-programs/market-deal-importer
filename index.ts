@@ -165,8 +165,12 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
                     values: convertMarketDeal(marketDeal)
                 });
                 count++;
+                if (count % 1000 === 0) {
+                    console.info(`Processed ${count} deals`);
+                }
             });
         }
+        await queue.stop();
         console.log('Rename current_state_new to current_state');
         try {
             await postgres.query('BEGIN');
@@ -196,3 +200,5 @@ export async function handler(event: InputEvent) {
     };
     return response;
 }
+
+handler({ url: 'https://marketdeals.s3.amazonaws.com/StateMarketDeals.json' });
