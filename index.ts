@@ -159,6 +159,9 @@ export async function processDeals(url: string, postgres: PostgresClient): Promi
                 values: convertMarketDeal(marketDeal)
             });
             count++;
+            if (count % 1000 === 0) {
+                console.info(`Processed ${count} deals`);
+            }
         }
         console.log('Rename current_state_new to current_state');
         try {

@@ -13,6 +13,7 @@ import * as index from './index';
 import createSpyObj = jasmine.createSpyObj;
 
 describe('index', () => {
+    jasmine.DEFAULT_TIMEOUT_INTERVAL = 1_000_000_000;
     const expectedDealRow = [
         9689670,
         'baga6ea4seaqn3jt6lrunp6ucihyxptqx6aemoxddzsa4eyocmydfpxbrwllqwna',
@@ -42,9 +43,9 @@ describe('index', () => {
         0n, 0, 0, 0
     ];
     describe('processDeals', () => {
-        it('should dump market deals to database and remove old ones', async () => {
+        fit('should dump market deals to database and remove old ones', async () => {
             const client = createSpyObj('postgres', ['connect', 'query', 'end']);
-            const url = 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
+            const url = 'https://marketdeals.s3.amazonaws.com/StateMarketDeals.json';
             await index.processDeals(url, client);
             expect(client.connect).toHaveBeenCalled();
             expect(client.query).toHaveBeenCalledTimes(12);
