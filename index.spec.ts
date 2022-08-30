@@ -5,9 +5,9 @@ import {
     convertMarketDeal,
     createStatement,
     dropStatement,
-    epochToTimestamp, insertStatement,
+    epochToTimestamp,
     processDeals,
-    readMarketDeals
+    readMarketDeals, readMarketDealsBatch
 } from "./index";
 import * as index from './index';
 import createSpyObj = jasmine.createSpyObj;
@@ -27,33 +27,15 @@ describe('index', () => {
         3350549236814358n,
         0n, 0, 0, 0
     ];
-    const expectedDealRow2 = [
-        9686908,
-        'baga6ea4seaqauc2ydwxtamwtij6xwe7ewoxmxprdoqn4zjnuknz77v7ijewxchq',
-        34359738368n,
-        true,
-        'f01850099',
-        'f01895913',
-        'mAXCg5AIgrlxdhtWlQYd+xRf20UUMrzw+Gn9F8LogoloEJ0xWvBM',
-        1662315360,
-        1708539360,
-        0n,
-        6785282953422315n,
-        0n, 0, 0, 0
-    ];
     describe('processDeals', () => {
         it('should dump market deals to database and remove old ones', async () => {
             const client = createSpyObj('postgres', ['connect', 'query', 'end']);
             const url = 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
             await index.processDeals(url, client);
             expect(client.connect).toHaveBeenCalled();
-            expect(client.query).toHaveBeenCalledTimes(12);
+            expect(client.query).toHaveBeenCalledTimes(7);
             expect(client.query).toHaveBeenCalledWith(dropStatement);
             expect(client.query).toHaveBeenCalledWith(createStatement);
-            expect(client.query).toHaveBeenCalledWith(jasmine.objectContaining({
-                text: insertStatement,
-                values: expectedDealRow2
-            }));
             expect(client.query).toHaveBeenCalledWith("BEGIN");
             expect(client.query).toHaveBeenCalledWith("DROP TABLE IF EXISTS current_state");
             expect(client.query).toHaveBeenCalledWith("ALTER TABLE current_state_new RENAME TO current_state");
@@ -91,7 +73,28 @@ describe('index', () => {
             expect(row).toEqual(expectedDealRow);
         })
     })
+    describe('getInsertStatement', () => {
+        it('should return correct statement when batch is 1', () => {
+            const statement = index.getInsertStatement(1);
+            expect(statement.endsWith("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)")).toBeTrue();
+        })
+        it('should return correct statement when batch is 2', () => {
+            const statement = index.getInsertStatement(2);
+            expect(statement.endsWith("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15), ($16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)")).toBeTrue();
+        })
+    })
     describe('readMarketDeals', () => {
+        it('should read deals in batch', async () => {
+            const url = 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
+            const result = []
+            for await(const a of readMarketDealsBatch(url, 4)) {
+                result.push(a);
+            }
+            expect(result.length).toBe(2);
+            expect(result[0].length).toBe(4);
+            expect(result[1].length).toBe(2);
+            expect(result[0][0].key).toBe('9686908');
+        })
         it('regular json string should return async iterator', async () => {
             const s = new Readable();
             s.push('{"a":1, "b": 2}');
