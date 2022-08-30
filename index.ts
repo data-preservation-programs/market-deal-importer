@@ -28,6 +28,7 @@ export const insertStatement = `INSERT INTO current_state_new (deal_id,
                                piece_cid,
                                piece_size,
                                verified_deal,
+                               client,
                                provider,
                                label,
                                start_epoch,
@@ -38,7 +39,7 @@ export const insertStatement = `INSERT INTO current_state_new (deal_id,
                                sector_start_epoch,
                                last_updated_epoch,
                                slash_epoch)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`;
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`;
 
 type DealId = number;
 type PieceCid = string;
