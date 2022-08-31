@@ -251,4 +251,4 @@ export async function handler(event: InputEvent) {
 }
 
 //handler({ url: 'https://marketdeals.s3.amazonaws.com/StateMarketDeals.json' });
-handler({ url: 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json' });
+//handler({ url: 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json' });
