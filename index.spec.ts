@@ -22,7 +22,7 @@ describe('index', () => {
         3649467,
         0n,
         3350549236814358n,
-        0n, -1, -1, -1, true
+        0n, -1, -1, -1
     ];
     describe('epochToEpoch', () => {
         it('converts epoch to Epoch', () => {
@@ -58,11 +58,11 @@ describe('index', () => {
     describe('getInsertStatement', () => {
         it('should return correct statement when batch is 1', () => {
             const statement = index.getInsertStatement(1);
-            expect(statement.includes("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)")).toBeTrue();
+            expect(statement.includes("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)")).toBeTrue();
         })
         it('should return correct statement when batch is 2', () => {
             const statement = index.getInsertStatement(2);
-            expect(statement.includes("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16), ($17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)")).toBeTrue();
+            expect(statement.includes("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15), ($16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)")).toBeTrue();
         })
     })
     describe('readMarketDeals', () => {

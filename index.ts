@@ -23,8 +23,7 @@ export const createStatement = `CREATE TABLE IF NOT EXISTS current_state (
     client_collateral BIGINT NOT NULL,
     sector_start_epoch INTEGER NOT NULL,
     last_updated_epoch INTEGER NOT NULL,
-    slash_epoch INTEGER NOT NULL,
-    state_present BOOLEAN NOT NULL
+    slash_epoch INTEGER NOT NULL
 )`;
 export const insertStatementBase = `INSERT INTO current_state (
                                deal_id,
@@ -41,8 +40,7 @@ export const insertStatementBase = `INSERT INTO current_state (
                                client_collateral,
                                sector_start_epoch,
                                last_updated_epoch,
-                               slash_epoch,
-                               state_present) VALUES {values}
+                               slash_epoch) VALUES {values}
                             ON CONFLICT (deal_id) DO UPDATE SET sector_start_epoch = EXCLUDED.sector_start_epoch, last_updated_epoch = EXCLUDED.last_updated_epoch, slash_epoch = EXCLUDED.slash_epoch`;
 
 type DealId = number;
@@ -60,7 +58,6 @@ type ClientCollateral = bigint;
 type SectorStartEpoch = number;
 type LastUpdatedEpoch = number;
 type SlashEpoch = number;
-type StatePresent = boolean;
 type DealRow = [
     DealId,
     PieceCid,
@@ -76,8 +73,7 @@ type DealRow = [
     ClientCollateral,
     SectorStartEpoch,
     LastUpdatedEpoch,
-    SlashEpoch,
-    StatePresent
+    SlashEpoch
 ]
 
 interface MarketDeal {
@@ -108,7 +104,7 @@ export function getInsertStatement(batch: number): string {
     let j = 1;
     let result = '';
     for (let i = 0; i < batch; i++) {
-        result += `($${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++})`;
+        result += `($${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++})`;
         if (i < batch - 1) {
             result += ', ';
         }
@@ -166,8 +162,7 @@ export function convertMarketDeal(deal: {key: string, value: MarketDeal}) : Deal
         BigInt(ClientCollateral),
         SectorStartEpoch,
         LastUpdatedEpoch,
-        SlashEpoch,
-        true
+        SlashEpoch
     ];
 }
 
@@ -225,9 +220,6 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
                 });
         }
         await queue.stop();
-        console.log('Mark all deals that are no longer present in the state');
-        const modified = await postgres.query(`UPDATE current_state SET state_present = false WHERE state_present = true AND deal_id NOT IN (${currentDealIds.join(',')}) RETURNING deal_id`);
-        console.log(`${modified.rowCount} deals marked as not present`);
     } finally {
         await postgres.end();
     }
