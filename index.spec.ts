@@ -3,16 +3,13 @@ import StreamObject from "stream-json/streamers/StreamObject";
 import {stream} from "event-iterator";
 import {
     convertMarketDeal,
-    createStatement,
-    dropStatement,
     epochToTimestamp,
-    processDeals,
     readMarketDeals, readMarketDealsBatch
 } from "./index";
 import * as index from './index';
-import createSpyObj = jasmine.createSpyObj;
 
 describe('index', () => {
+    jasmine.DEFAULT_TIMEOUT_INTERVAL = 100000;
     const expectedDealRow = [
         9689670,
         'baga6ea4seaqn3jt6lrunp6ucihyxptqx6aemoxddzsa4eyocmydfpxbrwllqwna',
@@ -25,23 +22,8 @@ describe('index', () => {
         3649467,
         0n,
         3350549236814358n,
-        0n, -1, -1, -1
+        0n, -1, -1, -1, true
     ];
-    describe('processDeals', () => {
-        it('should dump market deals to database and remove old ones', async () => {
-            const client = createSpyObj('postgres', ['connect', 'query', 'end']);
-            const url = 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
-            await index.processDeals(url, client);
-            expect(client.connect).toHaveBeenCalled();
-            expect(client.query).toHaveBeenCalledTimes(7);
-            expect(client.query).toHaveBeenCalledWith(dropStatement);
-            expect(client.query).toHaveBeenCalledWith(createStatement);
-            expect(client.query).toHaveBeenCalledWith("BEGIN");
-            expect(client.query).toHaveBeenCalledWith("DROP TABLE IF EXISTS current_state");
-            expect(client.query).toHaveBeenCalledWith("ALTER TABLE current_state_new RENAME TO current_state");
-            expect(client.query).toHaveBeenCalledWith("COMMIT");
-        })
-    })
     describe('epochToEpoch', () => {
         it('converts epoch to Epoch', () => {
             expect(epochToTimestamp(0)).toBe(1598306400);
@@ -76,11 +58,11 @@ describe('index', () => {
     describe('getInsertStatement', () => {
         it('should return correct statement when batch is 1', () => {
             const statement = index.getInsertStatement(1);
-            expect(statement.endsWith("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)")).toBeTrue();
+            expect(statement.includes("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)")).toBeTrue();
         })
         it('should return correct statement when batch is 2', () => {
             const statement = index.getInsertStatement(2);
-            expect(statement.endsWith("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15), ($16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)")).toBeTrue();
+            expect(statement.includes("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16), ($17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)")).toBeTrue();
         })
     })
     describe('readMarketDeals', () => {

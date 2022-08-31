@@ -8,8 +8,7 @@ import {Pool} from 'pg';
 // @ts-ignore
 import TaskQueue from '@goodware/task-queue';
 
-export const dropStatement = 'DROP TABLE IF EXISTS current_state_new';
-export const createStatement = `CREATE TABLE current_state_new (
+export const createStatement = `CREATE TABLE IF NOT EXISTS current_state (
     deal_id INTEGER NOT NULL PRIMARY KEY,
     piece_cid TEXT NOT NULL,
     piece_size BIGINT NOT NULL,
@@ -24,9 +23,11 @@ export const createStatement = `CREATE TABLE current_state_new (
     client_collateral BIGINT NOT NULL,
     sector_start_epoch INTEGER NOT NULL,
     last_updated_epoch INTEGER NOT NULL,
-    slash_epoch INTEGER NOT NULL
+    slash_epoch INTEGER NOT NULL,
+    state_present BOOLEAN NOT NULL
 )`;
-export const insertStatementBase = `INSERT INTO current_state_new (deal_id,
+export const insertStatementBase = `INSERT INTO current_state (
+                               deal_id,
                                piece_cid,
                                piece_size,
                                verified_deal,
@@ -40,8 +41,9 @@ export const insertStatementBase = `INSERT INTO current_state_new (deal_id,
                                client_collateral,
                                sector_start_epoch,
                                last_updated_epoch,
-                               slash_epoch)
-VALUES `;
+                               slash_epoch,
+                               state_present) VALUES {values}
+                            ON CONFLICT (deal_id) DO UPDATE SET sector_start_epoch = EXCLUDED.sector_start_epoch, last_updated_epoch = EXCLUDED.last_updated_epoch, slash_epoch = EXCLUDED.slash_epoch`;
 
 type DealId = number;
 type PieceCid = string;
@@ -58,6 +60,7 @@ type ClientCollateral = bigint;
 type SectorStartEpoch = number;
 type LastUpdatedEpoch = number;
 type SlashEpoch = number;
+type StatePresent = boolean;
 type DealRow = [
     DealId,
     PieceCid,
@@ -73,7 +76,8 @@ type DealRow = [
     ClientCollateral,
     SectorStartEpoch,
     LastUpdatedEpoch,
-    SlashEpoch
+    SlashEpoch,
+    StatePresent
 ]
 
 interface MarketDeal {
@@ -102,14 +106,14 @@ interface MarketDeal {
 
 export function getInsertStatement(batch: number): string {
     let j = 1;
-    let result =insertStatementBase;
+    let result = '';
     for (let i = 0; i < batch; i++) {
-        result += `($${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++})`;
+        result += `($${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++}, $${j++})`;
         if (i < batch - 1) {
             result += ', ';
         }
     }
-    return result;
+    return insertStatementBase.replace('{values}', result);
 }
 
 export async function* readMarketDealsBatch(url: string, batch: number): AsyncIterable<{ key: string, value: MarketDeal }[]> {
@@ -163,8 +167,15 @@ export function convertMarketDeal(deal: {key: string, value: MarketDeal}) : Deal
         SectorStartEpoch,
         LastUpdatedEpoch,
         SlashEpoch,
+        true
     ];
 }
+
+const createPieceCidIndex = 'CREATE INDEX IF NOT EXISTS current_state_piece_cid ON current_state (piece_cid)';
+
+const createClientIndex = 'CREATE INDEX IF NOT EXISTS current_state_client ON current_state (client)';
+
+const createProviderIndex = 'CREATE INDEX IF NOT EXISTS current_state_provider ON current_state (provider)';
 
 export async function processDeals(url: string, postgres: Pool): Promise<void> {
     const queue = new TaskQueue({
@@ -172,20 +183,20 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
     });
     let count = 0;
     let innerCount = 0;
+    let currentDealIds: number[] = [];
     const batch = parseInt(process.env.BATCH_SIZE || '100');
     const batchInsertStatement = getInsertStatement(batch);
     try {
-        console.info(dropStatement);
-        await postgres.query(dropStatement);
         console.info(createStatement);
         await postgres.query(createStatement);
-        await postgres.query('CREATE INDEX ON current_state_new (piece_cid)');
-        await postgres.query('CREATE INDEX ON current_state_new (client)');
-        await postgres.query('CREATE INDEX ON current_state_new (provider)');
+        await postgres.query(createPieceCidIndex);
+        await postgres.query(createClientIndex);
+        await postgres.query(createProviderIndex);
 
         for await (const marketDeal of await readMarketDealsBatch(url, batch)) {
                 await queue.push(async () => {
                     try {
+                        currentDealIds.push(...marketDeal.map(deal => parseInt(deal.key)));
                         if (marketDeal.length === batch) {
                             await postgres.query({
                                 name: 'insert-new-deal-batch',
@@ -214,25 +225,16 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
                 });
         }
         await queue.stop();
-        console.log('Rename current_state_new to current_state');
-        try {
-            await postgres.query('BEGIN');
-            await postgres.query('DROP TABLE IF EXISTS current_state');
-            await postgres.query('ALTER TABLE current_state_new RENAME TO current_state');
-        } catch (e) {
-            await postgres.query('ROLLBACK')
-            throw e;
-        } finally {
-            await postgres.query('COMMIT');
-        }
-        console.log('Completed renaming current_state_new to current_state');
+        console.log('Mark all deals that are no longer present in the state');
+        const modified = await postgres.query(`UPDATE current_state SET state_present = false WHERE state_present = true AND deal_id NOT IN (${currentDealIds.join(',')}) RETURNING deal_id`);
+        console.log(`${modified.rowCount} deals marked as not present`);
     } finally {
         await postgres.end();
     }
-    console.log('Processed', count, 'deals');
+    console.log('Total processed', count, 'deals');
 }
 
-export async function handler(event: InputEvent) {
+export async function handler() {
     const url = process.env.INPUT_URL || 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
     const postgres = new Pool({
         min: parseInt(process.env.POOL_MIN || '32'),
@@ -246,5 +248,4 @@ export async function handler(event: InputEvent) {
     return response;
 }
 
-//handler({ url: 'https://marketdeals.s3.amazonaws.com/StateMarketDeals.json' });
-//handler({ url: 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json' });
+//handler();
