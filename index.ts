@@ -171,7 +171,6 @@ export function convertMarketDeal(deal: {key: string, value: MarketDeal}) : Deal
 }
 
 export async function processDeals(url: string, postgres: Pool): Promise<void> {
-    await postgres.connect();
     const queue = new TaskQueue({
         size: parseInt(process.env.POLL_MAX || '128') * 2
     });
@@ -184,6 +183,9 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
         await postgres.query(dropStatement);
         console.info(createStatement);
         await postgres.query(createStatement);
+        await postgres.query('CREATE INDEX ON current_state_new (piece_cid)');
+        await postgres.query('CREATE INDEX ON current_state_new (client)');
+        await postgres.query('CREATE INDEX ON current_state_new (provider)');
 
         for await (const marketDeal of await readMarketDealsBatch(url, batch)) {
                 await queue.push(async () => {
@@ -227,6 +229,7 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
         } finally {
             await postgres.query('COMMIT');
         }
+        console.log('Completed renaming current_state_new to current_state');
     } finally {
         await postgres.end();
     }
@@ -238,7 +241,7 @@ export async function handler(event: InputEvent) {
     const postgres = new Pool({
         min: parseInt(process.env.POOL_MIN || '32'),
         max: parseInt(process.env.POLL_MAX || '128'),
-        idleTimeoutMillis: parseInt(process.env.POLL_IDLE_TIMEOUT || '60000'),
+        idleTimeoutMillis: parseInt(process.env.POLL_IDLE_TIMEOUT || '120000'),
     });
     await processDeals(url, postgres);
     const response = {
@@ -248,3 +251,4 @@ export async function handler(event: InputEvent) {
 }
 
 //handler({ url: 'https://marketdeals.s3.amazonaws.com/StateMarketDeals.json' });
+handler({ url: 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json' });
