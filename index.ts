@@ -50,14 +50,14 @@ type VerifiedDeal = boolean;
 type Client = string;
 type Provider = string;
 type Label = string;
-type StartTimestamp = number;
-type EndTimestamp = number;
+type StartEpoch = number;
+type EndEpoch = number;
 type StoragePricePerEpoch = bigint;
 type ProviderCollateral = bigint;
 type ClientCollateral = bigint;
-type SectorStartTimestamp = number;
-type LastUpdatedTimestamp = number;
-type SlashTimestamp = number;
+type SectorStartEpoch = number;
+type LastUpdatedEpoch = number;
+type SlashEpoch = number;
 type DealRow = [
     DealId,
     PieceCid,
@@ -66,14 +66,14 @@ type DealRow = [
     Client,
     Provider,
     Label,
-    StartTimestamp,
-    EndTimestamp,
+    StartEpoch,
+    EndEpoch,
     StoragePricePerEpoch,
     ProviderCollateral,
     ClientCollateral,
-    SectorStartTimestamp,
-    LastUpdatedTimestamp,
-    SlashTimestamp
+    SectorStartEpoch,
+    LastUpdatedEpoch,
+    SlashEpoch
 ]
 
 interface MarketDeal {
@@ -159,14 +159,14 @@ export function convertMarketDeal(deal: {key: string, value: MarketDeal}) : Deal
         Client,
         Provider,
         Label,
-        epochToTimestamp(StartEpoch),
-        epochToTimestamp(EndEpoch),
+        StartEpoch,
+        EndEpoch,
         BigInt(StoragePricePerEpoch),
         BigInt(ProviderCollateral),
         BigInt(ClientCollateral),
-        epochToTimestamp(SectorStartEpoch),
-        epochToTimestamp(LastUpdatedEpoch),
-        epochToTimestamp(SlashEpoch),
+        SectorStartEpoch,
+        LastUpdatedEpoch,
+        SlashEpoch,
     ];
 }
 
@@ -187,22 +187,30 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
 
         for await (const marketDeal of await readMarketDealsBatch(url, batch)) {
                 await queue.push(async () => {
-                    if (marketDeal.length === batch) {
-                        await postgres.query({
-                            name: 'insert-new-deal-batch',
-                            text: batchInsertStatement,
-                            values: marketDeal.map(convertMarketDeal).flat()
-                        });
-                    } else {
-                        await postgres.query({
-                            text: getInsertStatement(marketDeal.length),
-                            values: marketDeal.map(convertMarketDeal).flat()
-                        });
+                    try {
+                        if (marketDeal.length === batch) {
+                            await postgres.query({
+                                name: 'insert-new-deal-batch',
+                                text: batchInsertStatement,
+                                values: marketDeal.map(convertMarketDeal).flat()
+                            });
+                        } else {
+                            await postgres.query({
+                                text: getInsertStatement(marketDeal.length),
+                                values: marketDeal.map(convertMarketDeal).flat()
+                            });
+                        }
+                    } catch (e) {
+                        for (const deal of marketDeal) {
+                            console.error(deal);
+                        }
+                        console.error(e);
+                        throw e;
                     }
                     count += marketDeal.length;
                     innerCount += marketDeal.length;
-                    if (innerCount >= 1000) {
-                        innerCount -= 1000;
+                    if (innerCount >= 10000) {
+                        innerCount -= 10000;
                         console.log(`Processed ${count} deals`);
                     }
                 });

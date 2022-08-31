@@ -21,11 +21,11 @@ describe('index', () => {
         'f01860352',
         'f01206408',
         'QmagcXGsTErQ8J8KxvkkuybYDK47S4BKu67uqYPUgGgL1S',
-        1661998500,
-        1707790410,
+        2123070,
+        3649467,
         0n,
         3350549236814358n,
-        0n, 0, 0, 0
+        0n, -1, -1, -1
     ];
     describe('processDeals', () => {
         it('should dump market deals to database and remove old ones', async () => {
@@ -42,8 +42,8 @@ describe('index', () => {
             expect(client.query).toHaveBeenCalledWith("COMMIT");
         })
     })
-    describe('epochToTimestamp', () => {
-        it('converts epoch to timestamp', () => {
+    describe('epochToEpoch', () => {
+        it('converts epoch to Epoch', () => {
             expect(epochToTimestamp(0)).toBe(1598306400);
             expect(epochToTimestamp(1)).toBe(1598306430);
             expect(epochToTimestamp(-1)).toBe(0);
