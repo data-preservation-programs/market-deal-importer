@@ -100,10 +100,6 @@ interface MarketDeal {
     },
 }
 
-interface InputEvent {
-    url: string;
-}
-
 export function getInsertStatement(batch: number): string {
     let j = 1;
     let result =insertStatementBase;
@@ -237,7 +233,7 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
 }
 
 export async function handler(event: InputEvent) {
-    const url = event.url;
+    const url = process.env.INPUT_URL || 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
     const postgres = new Pool({
         min: parseInt(process.env.POOL_MIN || '32'),
         max: parseInt(process.env.POLL_MAX || '128'),
