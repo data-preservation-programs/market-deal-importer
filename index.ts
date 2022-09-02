@@ -227,6 +227,7 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
 }
 
 export async function handler() {
+    const url = process.env.INPUT_URL || 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
     console.log({
         POLL_MIN: process.env.POLL_MIN,
         POLL_MAX: process.env.POLL_MAX,
@@ -236,9 +237,10 @@ export async function handler() {
         PGUSER: process.env.PGUSER,
         PGDATABASE: process.env.PGDATABASE,
         POLL_IDLE_TIMEOUT: process.env.POLL_IDLE_TIMEOUT,
-        POLL_CONNECTION_TIMEOUT: process.env.POLL_CONNECTION_TIMEOUT
-    })
-    const url = process.env.INPUT_URL || 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
+        POLL_CONNECTION_TIMEOUT: process.env.POLL_CONNECTION_TIMEOUT,
+        INPUT_URL: process.env.INPUT_URL,
+        url: url
+    });
     const postgres = new Pool({
         min: parseInt(process.env.POOL_MIN || '32'),
         max: parseInt(process.env.POLL_MAX || '128'),
