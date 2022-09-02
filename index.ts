@@ -244,8 +244,8 @@ export async function handler() {
     const postgres = new Pool({
         min: parseInt(process.env.POOL_MIN || '32'),
         max: parseInt(process.env.POLL_MAX || '128'),
-        idleTimeoutMillis: parseInt(process.env.POLL_IDLE_TIMEOUT || '120000'),
-        connectionTimeoutMillis: parseInt(process.env.POLL_CONNECTION_TIMEOUT || '120000'),
+        idleTimeoutMillis: parseInt(process.env.POLL_IDLE_TIMEOUT || '0'),
+        connectionTimeoutMillis: parseInt(process.env.POLL_CONNECTION_TIMEOUT || '0'),
     });
     await processDeals(url, postgres);
     const response = {
