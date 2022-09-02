@@ -213,8 +213,8 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
                     }
                     count += marketDeal.length;
                     innerCount += marketDeal.length;
-                    if (innerCount >= 100000) {
-                        innerCount -= 100000;
+                    if (innerCount >= 10000) {
+                        innerCount -= 10000;
                         console.log(`Processed ${count} deals`);
                     }
                 });
@@ -254,4 +254,4 @@ export async function handler() {
     return response;
 }
 
-//handler();
+handler();
