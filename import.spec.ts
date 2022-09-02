@@ -5,10 +5,10 @@ import {
     convertMarketDeal,
     epochToTimestamp,
     readMarketDeals, readMarketDealsBatch
-} from "./index";
-import * as index from './index';
+} from "./import";
+import * as lib from './import';
 
-describe('index', () => {
+describe('import', () => {
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 100000;
     const expectedDealRow = [
         9689670,
@@ -57,11 +57,11 @@ describe('index', () => {
     })
     describe('getInsertStatement', () => {
         it('should return correct statement when batch is 1', () => {
-            const statement = index.getInsertStatement(1);
+            const statement = lib.getInsertStatement(1);
             expect(statement.includes("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)")).toBeTrue();
         })
         it('should return correct statement when batch is 2', () => {
-            const statement = index.getInsertStatement(2);
+            const statement = lib.getInsertStatement(2);
             expect(statement.includes("VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15), ($16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)")).toBeTrue();
         })
     })
