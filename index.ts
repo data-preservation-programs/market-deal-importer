@@ -213,8 +213,8 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
                     }
                     count += marketDeal.length;
                     innerCount += marketDeal.length;
-                    if (innerCount >= 10000) {
-                        innerCount -= 10000;
+                    if (innerCount >= 100000) {
+                        innerCount -= 100000;
                         console.log(`Processed ${count} deals`);
                     }
                 });
@@ -227,11 +227,23 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
 }
 
 export async function handler() {
+    console.log({
+        POLL_MIN: process.env.POLL_MIN,
+        POLL_MAX: process.env.POLL_MAX,
+        BATCH_SIZE: process.env.BATCH_SIZE,
+        PGHOST: process.env.PGHOST,
+        PGPORT: process.env.PGPORT,
+        PGUSER: process.env.PGUSER,
+        PGDATABASE: process.env.PGDATABASE,
+        POLL_IDLE_TIMEOUT: process.env.POLL_IDLE_TIMEOUT,
+        POLL_CONNECTION_TIMEOUT: process.env.POLL_CONNECTION_TIMEOUT
+    })
     const url = process.env.INPUT_URL || 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
     const postgres = new Pool({
         min: parseInt(process.env.POOL_MIN || '32'),
         max: parseInt(process.env.POLL_MAX || '128'),
         idleTimeoutMillis: parseInt(process.env.POLL_IDLE_TIMEOUT || '120000'),
+        connectionTimeoutMillis: parseInt(process.env.POLL_CONNECTION_TIMEOUT || '120000'),
     });
     await processDeals(url, postgres);
     const response = {
