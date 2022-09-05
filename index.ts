@@ -1,3 +1,3 @@
-import {handler} from "./import";
+import {handler} from "./lib";
 
 handler();

@@ -2,7 +2,7 @@ import axios from "axios";
 import StreamObject from "stream-json/streamers/StreamObject";
 import {stream} from "event-iterator"
 import {EventIterator} from "event-iterator/src/event-iterator";
-import {Pool} from 'pg';
+import {Client as PgClient} from 'pg';
 // @ts-ignore
 import TaskQueue from '@goodware/task-queue';
 
@@ -170,9 +170,9 @@ const createClientIndex = 'CREATE INDEX IF NOT EXISTS current_state_client ON cu
 
 const createProviderIndex = 'CREATE INDEX IF NOT EXISTS current_state_provider ON current_state (provider)';
 
-export async function processDeals(url: string, postgres: Pool): Promise<void> {
+export async function processDeals(url: string, postgres: PgClient): Promise<void> {
     const queue = new TaskQueue({
-        size: parseInt(process.env.POLL_MAX || '128') * 2
+        size: parseInt(process.env.QUEUE_SIZE || '8')
     });
     let count = 0;
     let innerCount = 0;
@@ -227,22 +227,17 @@ export async function processDeals(url: string, postgres: Pool): Promise<void> {
 export async function handler() {
     const url = process.env.INPUT_URL || 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
     console.log({
-        POLL_MIN: process.env.POLL_MIN,
-        POLL_MAX: process.env.POLL_MAX,
         BATCH_SIZE: process.env.BATCH_SIZE,
+        QUEUE_SIZE: process.env.QUEUE_SIZE,
         PGHOST: process.env.PGHOST,
         PGPORT: process.env.PGPORT,
         PGUSER: process.env.PGUSER,
         PGDATABASE: process.env.PGDATABASE,
-        POLL_IDLE_TIMEOUT: process.env.POLL_IDLE_TIMEOUT,
         POLL_CONNECTION_TIMEOUT: process.env.POLL_CONNECTION_TIMEOUT,
         INPUT_URL: process.env.INPUT_URL,
         url: url
     });
-    const postgres = new Pool({
-        min: parseInt(process.env.POOL_MIN || '32'),
-        max: parseInt(process.env.POLL_MAX || '128'),
-        idleTimeoutMillis: parseInt(process.env.POLL_IDLE_TIMEOUT || '0'),
+    const postgres = new PgClient({
         connectionTimeoutMillis: parseInt(process.env.POLL_CONNECTION_TIMEOUT || '0'),
     });
     await processDeals(url, postgres);

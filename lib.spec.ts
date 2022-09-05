@@ -5,8 +5,8 @@ import {
     convertMarketDeal,
     epochToTimestamp,
     readMarketDeals, readMarketDealsBatch
-} from "./import";
-import * as lib from './import';
+} from "./lib";
+import * as lib from './lib';
 
 describe('import', () => {
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 100000;

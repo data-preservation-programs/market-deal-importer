@@ -105,6 +105,3 @@ dist
 
 dist
 .idea
-.aws-sam/
-aws-toolkit-tsconfig.json
-aws-toolkit-ts-output
