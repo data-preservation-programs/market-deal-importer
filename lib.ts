@@ -179,6 +179,7 @@ export async function processDeals(url: string, postgres: PgClient): Promise<voi
     let currentDealIds: number[] = [];
     const batch = parseInt(process.env.BATCH_SIZE || '100');
     const batchInsertStatement = getInsertStatement(batch);
+    await postgres.connect();
     try {
         console.info(createStatement);
         await postgres.query(createStatement);
