@@ -34,6 +34,8 @@ export const getAllClientMappingStatement = `SELECT client, client_address FROM 
 
 export const insertClientMappingStatement = `INSERT INTO client_mapping (client, client_address) VALUES ($1, $2)`;
 
+export const getAllClientsStatement = `SELECT DISTINCT client FROM current_state`;
+
 export const insertStatementBase = `INSERT INTO current_state (
                                deal_id,
                                piece_cid,
@@ -198,12 +200,18 @@ export async function processDeals(url: string, postgres: PgClient): Promise<voi
         await postgres.query(createPieceCidIndex);
         await postgres.query(createClientIndex);
         await postgres.query(createProviderIndex);
+        const allClients: string[] = (await postgres.query(getAllClientsStatement)).rows.map(row => row.client);
         const clientMappingRows: { client: string, client_address: string }[] = (await postgres.query(getAllClientMappingStatement)).rows;
         const clientMapping = new Map<string, string>();
         for (const row of clientMappingRows) {
             clientMapping.set(row.client, row.client_address);
         }
         const newClients = new Set<string>();
+        for (const client of allClients) {
+            if (!clientMapping.has(client)) {
+                newClients.add(client);
+            }
+        }
 
         for await (const marketDeal of await readMarketDealsBatch(url, batch)) {
             for(const deal of marketDeal) {
@@ -247,6 +255,7 @@ export async function processDeals(url: string, postgres: PgClient): Promise<voi
             await queue.push(async () => {
                 if (!result.error && result.result) {
                     const address = result.result;
+                    console.log(`Adding new client mapping ${client} -> ${address}`);
                     await postgres.query({
                         text: insertClientMappingStatement,
                         values: [client, address]

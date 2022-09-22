@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc && cp package*.json dist",
-    "test": "jasmine-ts lib.spec.ts"
+    "test": "jasmine-ts *.spec.ts"
   },
   "repository": {
     "type": "git",

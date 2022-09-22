@@ -27,7 +27,7 @@ export default class JsonRpcClient {
       const response = await axios.post<JsonRpcResult<R>>(
         this.url,
         {
-          id: randomUUID(),
+          id: 1,
           jsonrpc: '2.0',
           method: (this.prefix ?? '') + method,
           params: params
