@@ -5,6 +5,7 @@ import {EventIterator} from "event-iterator/src/event-iterator";
 import {Client as PgClient} from 'pg';
 // @ts-ignore
 import TaskQueue from '@goodware/task-queue';
+import JsonRpcClient from "./JsonRpcClient";
 
 export const createStatement = `CREATE TABLE IF NOT EXISTS current_state (
     deal_id INTEGER NOT NULL PRIMARY KEY,
@@ -23,6 +24,16 @@ export const createStatement = `CREATE TABLE IF NOT EXISTS current_state (
     last_updated_epoch INTEGER NOT NULL,
     slash_epoch INTEGER NOT NULL
 )`;
+
+export const createClientMappingStatement = `CREATE TABLE IF NOT EXISTS client_mapping (
+    client TEXT NOT NULL PRIMARY KEY,
+    client_address TEXT NOT NULL
+)`;
+
+export const getAllClientMappingStatement = `SELECT client, client_address FROM client_mapping`;
+
+export const insertClientMappingStatement = `INSERT INTO client_mapping (client, client_address) VALUES ($1, $2)`;
+
 export const insertStatementBase = `INSERT INTO current_state (
                                deal_id,
                                piece_cid,
@@ -176,21 +187,33 @@ export async function processDeals(url: string, postgres: PgClient): Promise<voi
     });
     let count = 0;
     let innerCount = 0;
-    let currentDealIds: number[] = [];
     const batch = parseInt(process.env.BATCH_SIZE || '100');
     const batchInsertStatement = getInsertStatement(batch);
     await postgres.connect();
     try {
         console.info(createStatement);
         await postgres.query(createStatement);
+        console.info(createClientMappingStatement);
+        await postgres.query(createClientMappingStatement);
         await postgres.query(createPieceCidIndex);
         await postgres.query(createClientIndex);
         await postgres.query(createProviderIndex);
+        const clientMappingRows: { client: string, client_address: string }[] = (await postgres.query(getAllClientMappingStatement)).rows;
+        const clientMapping = new Map<string, string>();
+        for (const row of clientMappingRows) {
+            clientMapping.set(row.client, row.client_address);
+        }
+        const newClients = new Set<string>();
 
         for await (const marketDeal of await readMarketDealsBatch(url, batch)) {
+            for(const deal of marketDeal) {
+                const client = deal.value.Proposal.Client;
+                if (!clientMapping.has(client)) {
+                    newClients.add(client);
+                }
+            }
             await queue.push(async () => {
                 try {
-                    currentDealIds.push(...marketDeal.map(deal => parseInt(deal.key)));
                     if (marketDeal.length === batch) {
                         await postgres.query({
                             name: 'insert-new-deal-batch',
@@ -215,6 +238,19 @@ export async function processDeals(url: string, postgres: PgClient): Promise<voi
                 if (innerCount >= 10000) {
                     innerCount -= 10000;
                     console.log(`Processed ${count} deals`);
+                }
+            });
+        }
+        const jsonRpcClient = new JsonRpcClient('https://api.node.glif.io/rpc/v0', 'Filecoin.');
+        for (const client of newClients) {
+            const result = await jsonRpcClient.call('StateAccountKey', [client, null]);
+            await queue.push(async () => {
+                if (!result.error && result.result) {
+                    const address = result.result;
+                    await postgres.query({
+                        text: insertClientMappingStatement,
+                        values: [client, address]
+                    });
                 }
             });
         }
