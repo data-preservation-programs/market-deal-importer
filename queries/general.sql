@@ -1,46 +1,35 @@
-/* Number of piece cid and total piece size per replica
-SELECT COUNT(*) AS num_piece_cid, SUM(sum) AS total_piece_size, count AS num_replica FROM (SELECT COUNT(*) AS count, SUM(piece_size) AS sum, piece_cid FROM current_state
-                 WHERE verified_deal = true
-                 GROUP BY piece_cid) AS t
-GROUP BY count;
-*/
-
-/* CIDs that have been used across multiple clients */
-WITH suspicious_cids as (SELECT count(distinct client), piece_cid FROM current_state
-    WHERE verified_deal = true
-    GROUP BY piece_cid
-    HAVING count(distinct client) > 1)
-SELECT COUNT(*) AS num_deals, SUM(piece_size) AS total_piece_size, COUNT(DISTINCT current_state.piece_cid) AS distict_piece_cids, client FROM current_state, suspicious_cids
-WHERE current_state.piece_cid = suspicious_cids.piece_cid AND current_state.verified_deal = true
-GROUP BY client;
+CREATE MATERIALIZED VIEW IF NOT EXISTS duplicate_deals_across_clients AS
+SELECT SUM(C2.piece_size) AS total_piece_size, COUNT(*) AS num_deals,
+         COUNT(DISTINCT C2.piece_cid) AS distinct_piece_cids,
+       C1.client AS client1, C2.client AS client2
+FROM current_state C1, current_state C2
+WHERE C1.piece_cid = C2.piece_cid
+  AND C1.verified_deal = true AND C2.verified_deal = true
+  AND C1.client != C2.client
+GROUP BY client1, client2;
 
 /* CIDs stored multiple times with the same SP */
-SELECT SUM(c) AS num_deals, SUM(s) AS total_piece_size, provider FROM
+CREATE MATERIALIZED VIEW IF NOT EXISTS duplicate_deals_per_sp AS
+SELECT SUM(c) AS num_deals, SUM(s) AS total_piece_size,
+       COUNT(piece_cid) AS num_distinct_piece_cids, provider FROM
 (SELECT COUNT(*) AS c, SUM(piece_size) AS s, piece_cid, provider FROM current_state
 WHERE verified_deal = true
+  AND slash_epoch < 0 AND sector_start_epoch > 0
+  AND end_epoch > (extract(epoch from now())::INTEGER - 1598306400) / 30
 GROUP BY piece_cid, provider
-HAVING COUNT(*) > 1) AS t
+HAVING COUNT(*) > 2) AS t
 GROUP BY provider;
 
-/* CIDs stored multiple times with different clients with the same SP */
-SELECT SUM(c) AS num_deals, SUM(s) AS total_piece_size, MAX(d) AS max_num_clients, provider FROM
-    (SELECT COUNT(*) AS c, SUM(piece_size) AS s, COUNT(DISTINCT client) as d, piece_cid, provider FROM current_state
-     WHERE verified_deal = true
-     GROUP BY piece_cid, provider
-     HAVING COUNT(DISTINCT client) > 1) AS t
-GROUP BY provider;
-
-/* Per client behavior stats */
-WITH cid_reuse AS (SELECT piece_cid, provider FROM current_state
-                   WHERE verified_deal = true
-                   GROUP BY piece_cid, provider
-                   HAVING COUNT(*) > 1)
-SELECT num_deals, total_piece_size, t1.client AS client, COALESCE(num_deals_cid_reuse, 0) AS num_deals_cid_reuse, COALESCE(total_piece_size_cid_reuse, 0) AS total_piece_size_cid_reuse FROM
-(SELECT COUNT(*) AS num_deals, SUM(piece_size) AS total_piece_size, client FROM current_state
+CREATE MATERIALIZED VIEW IF NOT EXISTS duplicate_deals_per_cid AS
+SELECT COUNT(DISTINCT client) AS num_distinct_clients,
+       SUM(piece_size) AS total_piece_size,
+       COUNT(*) AS num_deals,
+       COUNT(DISTINCT provider) AS num_distinct_providers,
+       piece_cid
+FROM current_state
 WHERE verified_deal = true
-GROUP BY client) as t1
-LEFT JOIN
-(SELECT COUNT(*) AS num_deals_cid_reuse, SUM(piece_size) AS total_piece_size_cid_reuse, client FROM current_state, cid_reuse
-WHERE current_state.piece_cid = cid_reuse.piece_cid AND current_state.provider = cid_reuse.provider AND current_state.verified_deal = true
-GROUP BY client) as t2
-ON t1.client = t2.client;
+  AND slash_epoch < 0 AND sector_start_epoch > 0
+  AND end_epoch > (extract(epoch from now())::INTEGER - 1598306400) / 30
+GROUP BY piece_cid
+HAVING COUNT(DISTINCT client) > 1
+Order by total_piece_size DESC
