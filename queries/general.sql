@@ -6,6 +6,10 @@ FROM current_state C1, current_state C2
 WHERE C1.piece_cid = C2.piece_cid
   AND C1.verified_deal = true AND C2.verified_deal = true
   AND C1.client != C2.client
+  AND C1.slash_epoch < 0 AND C1.sector_start_epoch > 0
+  AND C2.slash_epoch < 0 AND C2.sector_start_epoch > 0
+  AND C1.end_epoch > (extract(epoch from now())::INTEGER - 1598306400) / 30
+  AND C2.end_epoch > (extract(epoch from now())::INTEGER - 1598306400) / 30
 GROUP BY client1, client2;
 
 /* CIDs stored multiple times with the same SP */
