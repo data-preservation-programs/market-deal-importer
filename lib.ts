@@ -247,6 +247,7 @@ export async function processDeals(url: string, postgres: PgClient): Promise<voi
             await queue.push(async () => {
                 if (!result.error && result.result) {
                     const address = result.result;
+                    console.log(`Adding new client mapping ${client} -> ${address}`);
                     await postgres.query({
                         text: insertClientMappingStatement,
                         values: [client, address]
