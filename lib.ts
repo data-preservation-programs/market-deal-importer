@@ -3,6 +3,7 @@ import StreamObject from "stream-json/streamers/StreamObject";
 import {stream} from "event-iterator"
 import {EventIterator} from "event-iterator/src/event-iterator";
 import {Client as PgClient} from 'pg';
+import fs from 'fs';
 // @ts-ignore
 import TaskQueue from '@goodware/task-queue';
 import JsonRpcClient from "./JsonRpcClient";
@@ -123,9 +124,9 @@ export function getInsertStatement(batch: number): string {
     return insertStatementBase.replace('{values}', result);
 }
 
-export async function* readMarketDealsBatch(url: string, batch: number): AsyncIterable<{ key: string, value: MarketDeal }[]> {
+export async function* readMarketDealsBatch(path: string, batch: number): AsyncIterable<{ key: string, value: MarketDeal }[]> {
     let list = [];
-    for await (const deal of await readMarketDeals(url)) {
+    for await (const deal of await readMarketDeals(path)) {
         list.push(deal);
         if (list.length >= batch) {
             yield [...list];
@@ -137,12 +138,14 @@ export async function* readMarketDealsBatch(url: string, batch: number): AsyncIt
     }
 }
 
-export async function readMarketDeals(url: string): Promise<AsyncIterable<{ key: string, value: MarketDeal }>> {
-    console.info('Reading market deals from', url);
-    const response = await axios.get<NodeJS.ReadableStream>(url, {
-        responseType: "stream"
-    });
-    const p = response.data.pipe(StreamObject.withParser());
+export async function readMarketDeals(path: string): Promise<AsyncIterable<{ key: string, value: MarketDeal }>> {
+    console.info('Reading market deals from', path);
+    const readStream = fs.createReadStream(path, {autoClose: true});
+    readStream.on('error', (err) => {
+        console.error(err);
+        process.exit(1);
+    })
+    const p = readStream.pipe(StreamObject.withParser());
     const result = <EventIterator<{ key: string, value: MarketDeal }>>stream.call(p);
     return result;
 }
@@ -183,7 +186,7 @@ const createClientIndex = 'CREATE INDEX IF NOT EXISTS current_state_client ON cu
 
 const createProviderIndex = 'CREATE INDEX IF NOT EXISTS current_state_provider ON current_state (provider)';
 
-export async function processDeals(url: string, postgres: PgClient): Promise<void> {
+export async function processDeals(path: string, postgres: PgClient): Promise<void> {
     const queue = new TaskQueue({
         size: parseInt(process.env.QUEUE_SIZE || '8')
     });
@@ -213,7 +216,7 @@ export async function processDeals(url: string, postgres: PgClient): Promise<voi
             }
         }
 
-        for await (const marketDeal of await readMarketDealsBatch(url, batch)) {
+        for await (const marketDeal of await readMarketDealsBatch(path, batch)) {
             for(const deal of marketDeal) {
                 const client = deal.value.Proposal.Client;
                 if (!clientMapping.has(client)) {
@@ -271,7 +274,7 @@ export async function processDeals(url: string, postgres: PgClient): Promise<voi
 }
 
 export async function handler() {
-    const url = process.env.INPUT_URL || 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
+    const url = process.env.INPUT_FILE || 'StateMarketDeals.json';
     console.log({
         BATCH_SIZE: process.env.BATCH_SIZE,
         QUEUE_SIZE: process.env.QUEUE_SIZE,
