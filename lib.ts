@@ -238,11 +238,8 @@ export async function processDeals(path: string, postgres: PgClient): Promise<vo
                         });
                     }
                 } catch (e) {
-                    for (const deal of marketDeal) {
-                        console.error(deal);
-                    }
                     console.error(e);
-                    throw e;
+                    console.error(`Failed to insert from ${marketDeal[0].key} to ${marketDeal[marketDeal.length - 1].key}`);
                 }
                 count += marketDeal.length;
                 innerCount += marketDeal.length;
