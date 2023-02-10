@@ -67,7 +67,7 @@ describe('import', () => {
     })
     describe('readMarketDeals', () => {
         it('should read deals in batch', async () => {
-            const url = 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
+            const url = 'test.json';
             const result = []
             for await(const a of readMarketDealsBatch(url, 4)) {
                 result.push(a);
@@ -88,8 +88,15 @@ describe('import', () => {
             }
             expect<any>(result).toEqual([{key: 'a', value: 1}, {key: 'b', value: 2}]);
         })
+        xit('should throw if file does not exist', async () => {
+            const url = 'nonexisting.json';
+            const result = []
+            for await(const a of await readMarketDeals(url)) {
+                result.push(a);
+            }
+        })
         it('should parse json stream from test json', async () => {
-            const url = 'https://market-deal-importer.s3.us-west-2.amazonaws.com/test.json';
+            const url = 'test.json';
             const result = []
             for await(const a of await readMarketDeals(url)) {
                 result.push(a);
@@ -107,11 +114,11 @@ describe('import', () => {
                     Provider: 'f01895913',
                     Label: 'mAXCg5AIgrlxdhtWlQYd+xRf20UUMrzw+Gn9F8LogoloEJ0xWvBM',
                     StartEpoch: 2133632,
-                    EndEpoch: 3674432,
+                    EndEpoch: 36744320,
                     StoragePricePerEpoch: '0',
                     ProviderCollateral: '6785282953422315',
                     ClientCollateral: '0'
-                }, State: {SectorStartEpoch: -1, LastUpdatedEpoch: -1, SlashEpoch: -1}
+                }, State: {SectorStartEpoch: 2133632, LastUpdatedEpoch: 2133632, SlashEpoch: -1}
             });
         })
     })
