@@ -1,5 +1,4 @@
 FROM public.ecr.aws/docker/library/node:16
-ARG INPUT_URL
 RUN apt-get update && apt-get install -y aria2 zstd
 WORKDIR /app
 COPY package*.json ./
