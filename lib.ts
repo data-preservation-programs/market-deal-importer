@@ -251,19 +251,24 @@ export async function processDeals(path: string, postgres: PgClient): Promise<vo
         }
         const jsonRpcClient = new JsonRpcClient('https://api.node.glif.io/rpc/v0', 'Filecoin.');
         for (const client of newClients) {
-            const result = await jsonRpcClient.call('StateAccountKey', [client, null]);
             await queue.push(async () => {
-                if (!result.error && result.result) {
-                    const address = result.result;
-                    console.log(`Adding new client mapping ${client} -> ${address}`);
-                    await postgres.query({
-                        text: insertClientMappingStatement,
-                        values: [client, address]
-                    });
+                try {
+                    const result = await jsonRpcClient.call('StateAccountKey', [client, null]);
+                    if (!result.error && result.result) {
+                        const address = result.result;
+                        console.log(`Adding new client mapping ${client} -> ${address}`);
+                        await postgres.query({
+                            text: insertClientMappingStatement,
+                            values: [client, address]
+                        });
+                    }
+                } catch (e) {
+                    console.error(e);
+                    console.error(`Failed to add new client mapping for ${client}`);
                 }
             });
         }
-        await queue.stop();
+        await queue.wait();
     } finally {
         await postgres.end();
     }
