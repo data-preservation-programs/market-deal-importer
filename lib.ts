@@ -231,10 +231,12 @@ export async function processDeals(path: string, postgres: PgClient): Promise<vo
                             values: marketDeal.map(convertMarketDeal).flat()
                         });
                     } else {
+                        /*
                         await postgres.query({
                             text: getInsertStatement(marketDeal.length),
                             values: marketDeal.map(convertMarketDeal).flat()
                         });
+                        */
                     }
                 } catch (e) {
                     console.error(e);
