@@ -26,6 +26,7 @@
     "typescript": "^4.8.2"
   },
   "dependencies": {
+    "p-queue": "^6.6.2",
     "@goodware/task-queue": "^2.1.3",
     "axios": "^0.27.2",
     "event-iterator": "^2.0.0",

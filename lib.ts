@@ -4,8 +4,7 @@ import {stream} from "event-iterator"
 import {EventIterator} from "event-iterator/src/event-iterator";
 import {Client as PgClient} from 'pg';
 import fs from 'fs';
-// @ts-ignore
-import TaskQueue from '@goodware/task-queue';
+import PQueue from 'p-queue';
 import JsonRpcClient from "./JsonRpcClient";
 
 export const createStatement = `CREATE TABLE IF NOT EXISTS current_state (
@@ -187,9 +186,8 @@ const createClientIndex = 'CREATE INDEX IF NOT EXISTS current_state_client ON cu
 const createProviderIndex = 'CREATE INDEX IF NOT EXISTS current_state_provider ON current_state (provider)';
 
 export async function processDeals(path: string, postgres: PgClient): Promise<void> {
-    const queue = new TaskQueue({
-        size: parseInt(process.env.QUEUE_SIZE || '8')
-    });
+    const queueSize = parseInt(process.env.QUEUE_SIZE || '8');
+    const queue = new PQueue({concurrency: queueSize});
     let count = 0;
     let innerCount = 0;
     const batch = parseInt(process.env.BATCH_SIZE || '100');
@@ -223,7 +221,8 @@ export async function processDeals(path: string, postgres: PgClient): Promise<vo
                     newClients.add(client);
                 }
             }
-            await queue.push(async () => {
+            await queue.onEmpty();
+            queue.add(async () => {
                 try {
                     if (marketDeal.length === batch) {
                         await postgres.query({
@@ -251,7 +250,8 @@ export async function processDeals(path: string, postgres: PgClient): Promise<vo
         }
         const jsonRpcClient = new JsonRpcClient('https://api.node.glif.io/rpc/v0', 'Filecoin.');
         for (const client of newClients) {
-            await queue.push(async () => {
+            await queue.onEmpty();
+            queue.add(async () => {
                 try {
                     const result = await jsonRpcClient.call('StateAccountKey', [client, null]);
                     if (!result.error && result.result) {
@@ -268,7 +268,7 @@ export async function processDeals(path: string, postgres: PgClient): Promise<vo
                 }
             });
         }
-        await queue.wait();
+        await queue.onIdle();
     } finally {
         await postgres.end();
     }
