@@ -142,6 +142,7 @@ export async function readMarketDeals(path: string): Promise<AsyncIterable<{ key
     const readStream = fs.createReadStream(path, {autoClose: true});
     readStream.on('error', (err) => {
         console.error(err);
+        process.exit(1);
     })
     const p = readStream.pipe(StreamObject.withParser());
     const result = <EventIterator<{ key: string, value: MarketDeal }>>stream.call(p);
